@@ -7,6 +7,8 @@ import { ChartRenderer } from "./ChartRenderer";
 import { parseAIResponse, getSystemPrompt } from "@/lib/ai-parser";
 import { executeQuery, getSchemaDescription } from "@/lib/database";
 import type { ChatMessage, ChartConfig } from "@/lib/types";
+import { toast } from "sonner";
+
 
 export function ChatInterface() {
   const { tables, messages, addMessage, updateLastMessage, getSchema } = useData();
@@ -110,26 +112,70 @@ export function ChatInterface() {
 
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    
+    if (!SpeechRecognition) {
+      toast.error("Speech recognition is not supported in this browser.");
+      return;
+    }
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(transcript);
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast.info("Listening...", { id: "voice-status" });
+      };
+
+      recognition.onresult = (event: any) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          setInput(prev => prev + (prev ? ' ' : '') + finalTranscript);
+          toast.success("Voice captured!", { id: "voice-status" });
+        } else if (interimTranscript) {
+          // Provide some visual feedback that we're hearing them
+          toast.info(`Hearing: ${interimTranscript.slice(0, 30)}...`, { id: "voice-status", duration: 1000 });
+        }
+      };
+
+
+      recognition.onerror = (event: any) => {
+        setIsListening(false);
+        toast.dismiss("voice-status");
+        if (event.error === 'not-allowed') {
+          toast.error("Microphone access denied. Please check your browser permissions.");
+        } else if (event.error === 'no-speech') {
+          toast.error("No speech detected. Please try again.");
+        } else {
+          toast.error(`Speech recognition error: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        toast.dismiss("voice-status");
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (error) {
+      toast.error("Could not start speech recognition.");
       setIsListening(false);
-    };
-
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
+    }
   }, [isListening]);
+
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

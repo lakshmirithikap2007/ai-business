@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Upload, FileSpreadsheet, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useData } from "@/contexts/DataContext";
+import { toast } from "sonner";
 
 export function FileUpload() {
   const { uploadFiles, tables } = useData();
@@ -40,8 +41,14 @@ export function FileUpload() {
 
   const handleUpload = async () => {
     if (pendingFiles.length === 0) return;
-    await uploadFiles(pendingFiles);
-    setPendingFiles([]);
+    try {
+      await uploadFiles(pendingFiles);
+      setPendingFiles([]);
+      toast.success(`${pendingFiles.length} file(s) uploaded successfully`);
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error(`Upload failed: ${(error as Error).message}`);
+    }
   };
 
   const hasData = tables.length > 0;

@@ -4,11 +4,20 @@ import {
   AreaChart, Area, ScatterChart, Scatter,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Pin, PinOff, Download, Code2 } from "lucide-react";
+import { Pin, PinOff, Download, Code2, Copy, Check } from "lucide-react";
 import { toPng } from "html-to-image";
 import { motion } from "framer-motion";
 import type { ChartConfig } from "@/lib/types";
 import { useData } from "@/contexts/DataContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+
 
 const CHART_COLORS = [
   "hsl(195, 100%, 50%)",
@@ -187,14 +196,40 @@ export function ChartRenderer({ chart, compact }: Props) {
         </div>
         <div className="flex items-center gap-1">
           {chart.sql && (
-            <button
-              title="View SQL"
-              className="rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              onClick={() => navigator.clipboard.writeText(chart.sql || "")}
-            >
-              <Code2 className="h-3.5 w-3.5" />
-            </button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  title="View SQL"
+                  className="rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                >
+                  <Code2 className="h-3.5 w-3.5" />
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl bg-card border-border sm:rounded-xl">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center justify-between">
+                    <span>SQL Query</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(chart.sql || "");
+                        toast.success("SQL copied to clipboard");
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs hover:bg-primary/90 transition-colors"
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copy SQL
+                    </button>
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="mt-4">
+                  <pre className="p-4 rounded-lg bg-secondary/50 border border-border overflow-x-auto text-xs font-mono text-foreground leading-relaxed">
+                    {chart.sql}
+                  </pre>
+                </div>
+              </DialogContent>
+            </Dialog>
           )}
+
           <button
             title="Export PNG"
             onClick={exportPNG}

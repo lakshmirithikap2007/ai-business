@@ -29,11 +29,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const uploadFiles = useCallback(async (files: File[]) => {
     setIsLoading(true);
+    console.log("Starting upload of", files.length, "files");
     try {
       for (const file of files) {
+        console.log("Processing file:", file.name);
         await loadCSV(file);
       }
-      setTables(getAllTables());
+      const allTables = getAllTables();
+      console.log("Tables updated:", allTables.length);
+      setTables(allTables);
+    } catch (error) {
+      console.error("Error in uploadFiles:", error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
