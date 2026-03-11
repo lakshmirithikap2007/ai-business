@@ -10,13 +10,46 @@ import type { ChatMessage, ChartConfig } from "@/lib/types";
 import { toast } from "sonner";
 
 
+// Type definitions for Speech Recognition API
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: () => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+  start: () => void;
+  stop: () => void;
+}
+
+
+
 export function ChatInterface() {
   const { tables, messages, addMessage, updateLastMessage, getSchema } = useData();
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -78,7 +111,8 @@ export function ChatInterface() {
               } else {
                 resolvedCharts.push(chart);
               }
-            } catch {
+            } catch (error) {
+              console.error("Error generating overview chart 2:", error);
               resolvedCharts.push(chart);
             }
           } else {
@@ -110,8 +144,10 @@ export function ChatInterface() {
       return;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
     
     if (!SpeechRecognition) {
       toast.error("Speech recognition is not supported in this browser.");
@@ -119,17 +155,17 @@ export function ChatInterface() {
     }
 
     try {
-      const recognition = new SpeechRecognition();
+      const recognition = new SpeechRecognition() as SpeechRecognition;
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = "en-US";
 
       recognition.onstart = () => {
         setIsListening(true);
-        toast.info("Listening...", { id: "voice-status" });
+        toast.info("Listening... Speak clearly into your microphone.", { id: "voice-status" });
       };
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
         let interimTranscript = '';
         let finalTranscript = '';
 
@@ -145,21 +181,28 @@ export function ChatInterface() {
           setInput(prev => prev + (prev ? ' ' : '') + finalTranscript);
           toast.success("Voice captured!", { id: "voice-status" });
         } else if (interimTranscript) {
-          // Provide some visual feedback that we're hearing them
           toast.info(`Hearing: ${interimTranscript.slice(0, 30)}...`, { id: "voice-status", duration: 1000 });
         }
       };
 
 
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error("Speech recognition error:", event.error);
         setIsListening(false);
         toast.dismiss("voice-status");
-        if (event.error === 'not-allowed') {
-          toast.error("Microphone access denied. Please check your browser permissions.");
-        } else if (event.error === 'no-speech') {
-          toast.error("No speech detected. Please try again.");
-        } else {
-          toast.error(`Speech recognition error: ${event.error}`);
+        
+        switch (event.error) {
+          case 'not-allowed':
+            toast.error("Microphone access denied. Please check your browser permissions.");
+            break;
+          case 'no-speech':
+            toast.error("No speech detected. Try speaking closer to the mic.");
+            break;
+          case 'network':
+            toast.error("Network error during speech recognition.");
+            break;
+          default:
+            toast.error(`Speech error: ${event.error}`);
         }
       };
 
@@ -171,10 +214,13 @@ export function ChatInterface() {
       recognitionRef.current = recognition;
       recognition.start();
     } catch (error) {
+      console.error("Failed to start speech recognition:", error);
       toast.error("Could not start speech recognition.");
       setIsListening(false);
     }
   }, [isListening]);
+
+
 
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -342,7 +388,8 @@ function generateLocalResponse(query: string, schema: string): string {
   const numericCols = columns.filter(c => c.type === "INTEGER" || c.type === "REAL");
   const textCols = columns.filter(c => c.type === "TEXT");
 
-  const charts: any[] = [];
+  const charts: ChartConfig[] = [];
+
 
   if (lowerQuery.includes("overview") || lowerQuery.includes("insight") || lowerQuery.includes("summary")) {
     // Generate overview charts
@@ -352,6 +399,7 @@ function generateLocalResponse(query: string, schema: string): string {
         const data1 = executeQuery(sql1);
         if (data1.length > 0) {
           charts.push({
+            id: crypto.randomUUID(),
             type: "bar",
             title: `Top ${textCols[0].name} by ${numericCols[0].name}`,
             description: `Breakdown of ${numericCols[0].name} across ${textCols[0].name}`,
@@ -360,8 +408,12 @@ function generateLocalResponse(query: string, schema: string): string {
             xKey: textCols[0].name,
             yKeys: ["total"],
           });
+
         }
-      } catch {}
+      } catch (error) {
+        console.error("Error generating overview chart 1:", error);
+      }
+
 
       if (textCols.length > 0) {
         try {
@@ -369,16 +421,23 @@ function generateLocalResponse(query: string, schema: string): string {
           const data2 = executeQuery(sql2);
           if (data2.length > 0) {
             charts.push({
-              type: "pie",
-              title: `Distribution of ${textCols[0].name}`,
-              description: `How records are distributed across ${textCols[0].name}`,
-              sql: sql2,
-              data: data2,
-              nameKey: textCols[0].name,
-              valueKey: "count",
-            });
+            id: crypto.randomUUID(),
+            type: "pie",
+            title: `Distribution of ${textCols[0].name}`,
+            description: `How records are distributed across ${textCols[0].name}`,
+            sql: sql2,
+            data: data2,
+            nameKey: textCols[0].name,
+            valueKey: "count",
+          });
+
           }
-        } catch {}
+        } catch (error) {
+          console.error(`Error querying table ${table.name}:`, error);
+        }
+
+
+
       }
     }
 
@@ -399,7 +458,10 @@ function generateLocalResponse(query: string, schema: string): string {
             data: data3,
           });
         }
-      } catch {}
+      } catch (error) {
+        console.error("Error generating summary stats:", error);
+      }
+
     }
   } else if (lowerQuery.includes("distribution") || lowerQuery.includes("breakdown")) {
     const targetCol = textCols[0] || columns[0];
@@ -409,6 +471,7 @@ function generateLocalResponse(query: string, schema: string): string {
         const data = executeQuery(sql);
         if (data.length > 0) {
           charts.push({
+            id: crypto.randomUUID(),
             type: data.length <= 6 ? "pie" : "bar",
             title: `Distribution of ${targetCol.name}`,
             sql,
@@ -419,7 +482,9 @@ function generateLocalResponse(query: string, schema: string): string {
             valueKey: "count",
           });
         }
-      } catch {}
+      } catch (error: unknown) {
+        console.error("Error generating distribution chart:", error);
+      }
     }
   } else if (lowerQuery.includes("trend") || lowerQuery.includes("over time") || lowerQuery.includes("time series")) {
     // Look for date-like columns
@@ -435,6 +500,7 @@ function generateLocalResponse(query: string, schema: string): string {
         const data = executeQuery(sql);
         if (data.length > 0) {
           charts.push({
+            id: crypto.randomUUID(),
             type: "line",
             title: `${numericCols[0].name} over ${dateCols[0].name}`,
             sql,
@@ -443,7 +509,9 @@ function generateLocalResponse(query: string, schema: string): string {
             yKeys: ["total"],
           });
         }
-      } catch {}
+      } catch (error) {
+        console.error("Error generating trend chart:", error);
+      }
     }
   } else {
     // Generic: try to find relevant columns based on keywords
@@ -457,6 +525,7 @@ function generateLocalResponse(query: string, schema: string): string {
           const data = executeQuery(sql);
           if (data.length > 0) {
             charts.push({
+              id: crypto.randomUUID(),
               type: "bar",
               title: `${valueCol.name} by ${groupCol.name}`,
               sql,
@@ -466,7 +535,9 @@ function generateLocalResponse(query: string, schema: string): string {
             });
           }
         }
-      } catch {}
+      } catch (error) {
+        console.error("Error generating categorical chart:", error);
+      }
     }
     
     // Fallback: show top records
@@ -476,16 +547,20 @@ function generateLocalResponse(query: string, schema: string): string {
         const data = executeQuery(sql);
         if (data.length > 0) {
           charts.push({
+            id: crypto.randomUUID(),
             type: "table",
             title: `Sample data from ${tableName}`,
             description: "Showing first 20 records",
-            sql,
-            data,
+            sql: sql,
+            data: data,
           });
         }
-      } catch {}
+      } catch (error) {
+        console.error("Error generating sample table:", error);
+      }
     }
   }
+
 
   // Build response
   const chartsJson = charts.map(c => ({
