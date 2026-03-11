@@ -12,7 +12,7 @@ export interface ColumnInfo {
 
 export interface ChartConfig {
   id: string;
-  type: "bar" | "line" | "pie" | "area" | "scatter" | "table";
+  type: "bar" | "line" | "pie" | "area" | "scatter" | "table" | "radar" | "composed";
   title: string;
   description?: string;
   data: Record<string, unknown>[];
@@ -23,6 +23,7 @@ export interface ChartConfig {
   colors?: string[];
   sql?: string;
   pinned?: boolean;
+  isForecast?: boolean;
 }
 
 export interface ChatMessage {

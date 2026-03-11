@@ -85,7 +85,7 @@ Always provide:
 Each chart JSON block must follow this exact format inside \`\`\`json ... \`\`\` fences:
 
 {
-  "type": "bar" | "line" | "pie" | "area" | "scatter" | "table",
+  "type": "bar" | "line" | "pie" | "area" | "scatter" | "table" | "radar" | "composed",
   "title": "Chart Title",
   "description": "What this chart shows",
   "sql": "SELECT ... FROM ...",
@@ -101,8 +101,16 @@ Each chart JSON block must follow this exact format inside \`\`\`json ... \`\`\`
 - Comparisons across categories → "bar"
 - Parts of a whole / proportions → "pie"
 - Correlations between two numeric variables → "scatter"
+- Multi-dimensional comparisons → "radar"
+- Mixed data types (e.g., bar and line together) → "composed"
 - Detailed row-level data → "table"
 - Trends with volume → "area"
+
+## Forecasting
+If the user asks to "predict", "forecast", or "look at the future":
+1. Add a property "isForecast": true to the chart configuration
+2. In the "data" array, include both historical and predicted points. 
+3. For predicted points, you can append " (Forecast)" to the label or xKey value.
 
 ## Important Rules
 - ALWAYS include the actual data in the "data" array — never leave it empty
@@ -111,12 +119,5 @@ Each chart JSON block must follow this exact format inside \`\`\`json ... \`\`\`
 - Never fabricate or hallucinate data
 - For the "sql" field, include the actual SQL you would run
 - Keep explanations concise and business-friendly
-- If the user's request is ambiguous, ask for clarification
-- For forecasting requests, clearly label projected data points
-
-## Day Zero Insights
-When asked to generate automatic insights for a dataset:
-1. Provide 3-5 key metrics/charts that give the best overview
-2. Include a mix: at least one summary stat, one distribution, one trend (if time data exists)
-3. Make titles descriptive and actionable`;
+- If the user's request is ambiguous, ask for clarification`;
 }

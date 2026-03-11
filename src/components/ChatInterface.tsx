@@ -8,6 +8,8 @@ import { parseAIResponse, getSystemPrompt } from "@/lib/ai-parser";
 import { executeQuery, getSchemaDescription } from "@/lib/database";
 import type { ChatMessage, ChartConfig } from "@/lib/types";
 import { toast } from "sonner";
+import { generateForecast } from "@/lib/analytics";
+
 
 
 // Type definitions for Speech Recognition API
@@ -107,18 +109,33 @@ export function ChatInterface() {
             try {
               const data = executeQuery(chart.sql);
               if (data.length > 0) {
-                resolvedCharts.push({ ...chart, data });
+                let finalData = data;
+                
+                // If it's a forecast request, augment the data
+                if (chart.isForecast || text.toLowerCase().includes("predict") || text.toLowerCase().includes("forecast")) {
+                  const xKey = chart.xKey || Object.keys(data[0])[0];
+                  const yKey = chart.yKeys?.[0] || Object.keys(data[0])[1];
+                  
+                  if (xKey && yKey) {
+                    finalData = generateForecast(data, xKey, yKey) as Record<string, unknown>[];
+                    chart.isForecast = true;
+                  }
+                }
+
+                
+                resolvedCharts.push({ ...chart, data: finalData });
               } else {
                 resolvedCharts.push(chart);
               }
             } catch (error) {
-              console.error("Error generating overview chart 2:", error);
+              console.error("Error executing query for chart:", error);
               resolvedCharts.push(chart);
             }
           } else {
             resolvedCharts.push(chart);
           }
         }
+
 
         updateLastMessage({
           content: explanation,
@@ -148,6 +165,7 @@ export function ChatInterface() {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
+
     
     if (!SpeechRecognition) {
       toast.error("Speech recognition is not supported in this browser.");
@@ -162,8 +180,10 @@ export function ChatInterface() {
 
       recognition.onstart = () => {
         setIsListening(true);
+        console.log("SpeechRecognition: started");
         toast.info("Listening... Speak clearly into your microphone.", { id: "voice-status" });
       };
+
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let interimTranscript = '';

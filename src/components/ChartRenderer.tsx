@@ -1,9 +1,11 @@
 import { useRef, useCallback } from "react";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  AreaChart, Area, ScatterChart, Scatter,
+  AreaChart, Area, ScatterChart, Scatter, RadarChart, Radar,
+  PolarGrid, PolarAngleAxis, PolarRadiusAxis, ComposedChart,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+
 import { Pin, PinOff, Download, Code2, Copy, Check } from "lucide-react";
 import { toPng } from "html-to-image";
 import { motion } from "framer-motion";
@@ -94,7 +96,15 @@ export function ChartRenderer({ chart, compact }: Props) {
               <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,18%)", borderRadius: 8, color: "hsl(210,20%,92%)" }} />
               <Legend />
               {yKeys.map((key, i) => (
-                <Line key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} />
+                <Line 
+                  key={key} 
+                  type="monotone" 
+                  dataKey={key} 
+                  stroke={CHART_COLORS[i % CHART_COLORS.length]} 
+                  strokeWidth={2} 
+                  dot={chart.isForecast ? { r: 3 } : false}
+                  strokeDasharray={chart.isForecast ? "5 5" : undefined}
+                />
               ))}
             </LineChart>
           </ResponsiveContainer>
@@ -110,11 +120,63 @@ export function ChartRenderer({ chart, compact }: Props) {
               <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,18%)", borderRadius: 8, color: "hsl(210,20%,92%)" }} />
               <Legend />
               {yKeys.map((key, i) => (
-                <Area key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.15} />
+                <Area 
+                  key={key} 
+                  type="monotone" 
+                  dataKey={key} 
+                  stroke={CHART_COLORS[i % CHART_COLORS.length]} 
+                  fill={CHART_COLORS[i % CHART_COLORS.length]} 
+                  fillOpacity={0.15} 
+                  strokeDasharray={chart.isForecast ? "5 5" : undefined}
+                />
               ))}
             </AreaChart>
           </ResponsiveContainer>
         );
+
+      case "radar":
+        return (
+          <ResponsiveContainer width="100%" height={height}>
+            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chart.data}>
+              <PolarGrid stroke="hsl(220,14%,18%)" />
+              <PolarAngleAxis dataKey={xKey} tick={{ fill: "hsl(215,12%,50%)", fontSize: 10 }} />
+              <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={{ fill: "hsl(215,12%,50%)", fontSize: 10 }} />
+              {yKeys.map((key, i) => (
+                <Radar
+                  key={key}
+                  name={key}
+                  dataKey={key}
+                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                  fill={CHART_COLORS[i % CHART_COLORS.length]}
+                  fillOpacity={0.5}
+                />
+              ))}
+              <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,18%)", borderRadius: 8, color: "hsl(210,20%,92%)" }} />
+              <Legend />
+            </RadarChart>
+          </ResponsiveContainer>
+        );
+
+      case "composed":
+        return (
+          <ResponsiveContainer width="100%" height={height}>
+            <ComposedChart data={chart.data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,14%,18%)" />
+              <XAxis dataKey={xKey} tick={{ fill: "hsl(215,12%,50%)", fontSize: 11 }} />
+              <YAxis tick={{ fill: "hsl(215,12%,50%)", fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: "hsl(220,18%,12%)", border: "1px solid hsl(220,14%,18%)", borderRadius: 8, color: "hsl(210,20%,92%)" }} />
+              <Legend />
+              {yKeys.map((key, i) => (
+                i === 0 ? (
+                  <Bar key={key} dataKey={key} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
+                ) : (
+                  <Line key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} />
+                )
+              ))}
+            </ComposedChart>
+          </ResponsiveContainer>
+        );
+
 
       case "pie": {
         const nameKey = chart.nameKey || xKey;
