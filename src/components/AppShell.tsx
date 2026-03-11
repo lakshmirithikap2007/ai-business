@@ -118,7 +118,10 @@ function DataTableFull() {
         let data: Record<string, unknown>[] = [];
         try {
           data = runQuery(`SELECT * FROM "${table.name}" LIMIT 100`);
-        } catch {}
+        } catch (error) {
+          console.error(`Error querying table ${table.name}:`, error);
+        }
+
 
         return (
           <div key={table.name} className="rounded-lg border border-border bg-card overflow-hidden">

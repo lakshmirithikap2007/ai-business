@@ -433,8 +433,9 @@ function generateLocalResponse(query: string, schema: string): string {
 
           }
         } catch (error) {
-          console.error(`Error querying table ${table.name}:`, error);
+          console.error(`Error querying table ${tableName}:`, error);
         }
+
 
 
 
@@ -554,6 +555,7 @@ function generateLocalResponse(query: string, schema: string): string {
             sql: sql,
             data: data,
           });
+
         }
       } catch (error) {
         console.error("Error generating sample table:", error);
