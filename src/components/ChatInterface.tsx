@@ -14,7 +14,7 @@ export function ChatInterface() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
