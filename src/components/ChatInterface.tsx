@@ -452,12 +452,14 @@ function generateLocalResponse(query: string, schema: string): string {
         const data3 = executeQuery(sql3);
         if (data3.length > 0) {
           charts.push({
+            id: crypto.randomUUID(),
             type: "table",
             title: "Summary Statistics",
             description: "Key aggregated metrics",
             sql: sql3,
             data: data3,
           });
+
         }
       } catch (error) {
         console.error("Error generating summary stats:", error);
